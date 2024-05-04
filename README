@@ -1,0 +1,12 @@
+Source code of https://status.cipherfiles.com API
+
+## Requirements
+Latest version of docker is required.
+
+## How to run
+First of all you need to start redis docker instance, to do that
+run this command in your terminal: `docker run -p 6379:6379 --name redis -d redis`
+and start the api as you would with any other rust project.
+
+## License
+This project is licensed under GNU AGPL v3, you can read more in `LICENSE` file.

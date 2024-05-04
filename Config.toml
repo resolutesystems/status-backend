@@ -1,0 +1,18 @@
+# TODO(hito): config documentation
+
+[api]
+bind = "127.0.0.1:3000"
+
+[redis]
+url = "redis://127.0.0.1/"
+
+[collector]
+redis_key = "datapoints3"
+interval = 1
+records = 5
+
+[status]
+services = [
+    { label = "API", endpoint = "https://api.cipherfiles.com/health" },
+    { label = "Website", endpoint = "https://cipherfiles.com" },
+]
