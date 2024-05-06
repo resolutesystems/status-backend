@@ -17,15 +17,9 @@ pub struct ApiConfig {
     pub bind: String,
 }
 
-#[derive(Clone, Deserialize)]
-pub struct RedisConfig {
-    pub url: String,
-}
-
 #[serde_as]
 #[derive(Clone, Deserialize)]
 pub struct CollectorConfig {
-    pub redis_key: String,
     #[serde_as(as = "serde_with::DurationSeconds<u64>")]
     pub interval: Duration,
     pub records: usize,
@@ -45,7 +39,6 @@ pub struct StatusConfig {
 #[derive(Clone, Deserialize)]
 pub struct Config {
     pub api: ApiConfig,
-    pub redis: RedisConfig,
     pub collector: CollectorConfig,
     pub status: StatusConfig,
 }

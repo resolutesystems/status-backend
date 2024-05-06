@@ -1,21 +1,20 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct DataSet {
-    pub label: String,
-    pub data: Vec<f32>,
-}
-
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct DataPoints {
-    pub timestamps: Vec<DateTime<Utc>>,
-    pub datasets: Vec<DataSet>,
+    pub id: i64,
+    pub cpu: f32,
+    pub memory: f32,
+    pub transmitted: f64,
+    pub received: f64,
+    pub created_at: DateTime<Utc>,
 }
 
-#[derive(Default, Serialize, Deserialize)]
-pub struct AllDataPoints {
-    pub cpu: DataPoints,
-    pub memory: DataPoints,
-    pub network: DataPoints,
+#[derive(Deserialize)]
+pub struct Incident {
+    pub id: i64,
+    pub service: String,
+    pub message: String,
+    pub created_at: DateTime<Utc>,
 }

@@ -1,0 +1,6 @@
+CREATE TABLE incidents (
+    id SERIAL PRIMARY KEY,
+    service VARCHAR(64) NOT NULL,
+    message VARCHAR(256) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)

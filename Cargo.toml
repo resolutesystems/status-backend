@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1.37", features = ["rt-multi-thread", "net", "signal", "fs"] }
 axum = "0.7"
-redis = { version = "0.25", features = ["tokio-comp"] }
+sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "chrono"] }
 sysinfo = "0.30"
 byte-unit = "5.1"
 chrono = { version = "0.4", features = ["serde"] }
@@ -14,5 +14,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_with = { version = "3.8", features = ["time_0_3"] }
 serde_json = "1.0"
 reqwest = "0.12"
+dotenvy_macro = "0.15"
 toml = "0.8"
 anyhow = "1.0"

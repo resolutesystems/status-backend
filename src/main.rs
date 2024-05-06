@@ -6,28 +6,35 @@ mod config;
 #[cfg(not(unix))]
 use std::future;
 
-use axum::{routing::get, Extension, Router};
+use axum::{routing::{delete, get, post}, Extension, Router};
 use config::Config;
+use dotenvy_macro::dotenv;
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::{net::TcpListener, signal};
 
-use crate::{config::load_config, routes::{datapoints, services}};
+use crate::{config::load_config, routes::{add_incident, datapoints, delete_incident, services}};
+
+const DATABASE_URL: &str = dotenv!("DATABASE_URL");
 
 #[derive(Clone)]
 struct AppContext {
     config: Config,
-    redis: redis::Client,
+    db: PgPool,
 }
 
-async fn start_api(config: Config, redis: redis::Client) -> anyhow::Result<()> {
-    let ctx = AppContext { config: config.clone(), redis };
+async fn start_api(config: Config, db: PgPool) -> anyhow::Result<()> {
+    let listener = TcpListener::bind(&config.api.bind).await?;
+    println!("api is running on http://{}", config.api.bind);
+
+    let ctx = AppContext { config, db };
 
     let router = Router::new()
         .route("/datapoints", get(datapoints))
         .route("/services", get(services))
+        .route("/incidents", post(add_incident))
+        .route("/incidents/:service", delete(delete_incident))
         .layer(Extension(ctx));
 
-    let listener = TcpListener::bind(&config.api.bind).await?;
-    println!("api is running on http://{}", config.api.bind);
     axum::serve(listener, router)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
@@ -38,11 +45,14 @@ async fn start_api(config: Config, redis: redis::Client) -> anyhow::Result<()> {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = load_config().await?;
-    let redis = redis::Client::open(config.redis.url.clone())?;
+    let db = PgPoolOptions::new()
+        .max_connections(2)
+        .connect(DATABASE_URL)
+        .await?;
 
     tokio::select! {
-        t = start_api(config.clone(), redis.clone()) => t?,
-        t = collector::start(config.collector, redis) => t?,
+        t = start_api(config.clone(), db.clone()) => t?,
+        t = collector::start(config.collector, db) => t?,
     }
 
     Ok(())

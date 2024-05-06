@@ -2,21 +2,19 @@
 // (code needs to be cleaned A LOT)
 
 use byte_unit::{Byte, Unit};
-use chrono::Utc;
-use redis::AsyncCommands;
+use sqlx::PgPool;
 use sysinfo::{Networks, System};
 use tokio::{task, time};
 
-use crate::{config::CollectorConfig, models::{AllDataPoints, DataSet}};
+use crate::config::CollectorConfig;
 
-pub async fn start(config: CollectorConfig, redis: redis::Client) -> anyhow::Result<()> {
+pub async fn start(config: CollectorConfig, db: PgPool) -> anyhow::Result<()> {
     // TODO(hito): create only with specific informations
     let mut sys = System::new_all();
     let mut networks = Networks::new_with_refreshed_list();
     time::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL).await;
 
     let forever = task::spawn(async move {
-        let mut con = redis.get_multiplexed_async_connection().await.unwrap();
         let mut interval = time::interval(config.interval);
 
         loop {
@@ -26,95 +24,19 @@ pub async fn start(config: CollectorConfig, redis: redis::Client) -> anyhow::Res
             sys.refresh_all();
             networks.refresh();
 
-            // fetch current data from redis
-            let all_dps: Option<String> = con.get(&config.redis_key).await.unwrap();
-            let mut all_dps = if let Some(all_dps) = all_dps {
-                let all_dps: AllDataPoints = serde_json::from_str(&all_dps).unwrap();
-                all_dps
-            } else {
-                AllDataPoints::default()
-            };
-
-            // cpu
-            all_dps.cpu.timestamps.push(Utc::now());
-            let mut cpu_datas = match all_dps.cpu.datasets.first() {
-                Some(datas) => datas.clone(),
-                None => {
-                    let datas = DataSet { label: String::from("Usage (%)"), data: vec![] };
-                    datas
-                }
-            };
-            cpu_datas.data.push(sys.global_cpu_info().cpu_usage());
-            all_dps.cpu.datasets = vec![cpu_datas];
-
-            // memory
-            all_dps.memory.timestamps.push(Utc::now());
-            let mut mem_datas = match all_dps.memory.datasets.first() {
-                Some(datas) => datas.clone(),
-                None => {
-                    let datas = DataSet { label: String::from("Usage (%)"), data: vec![] };
-                    datas
-                }
-            };
-            mem_datas.data.push(memory_percentage(&sys));
-            all_dps.memory.datasets = vec![mem_datas];
+            // system info
+            let cpu = sys.global_cpu_info().cpu_usage();
+            let memory = memory_percentage(&sys);
 
             // network info
             let (trans, recv) = network_usage(&networks);
-            all_dps.network.timestamps.push(Utc::now());
+            let trans_mbit = Byte::from_u64(trans).get_adjusted_unit(Unit::Mbit).get_value();
+            let recv_mbit = Byte::from_u64(recv).get_adjusted_unit(Unit::Mbit).get_value();
 
-            let mut nin_datas = match all_dps.network.datasets.get(0) {
-                Some(datas) => datas.clone(),
-                None => {
-                    let datas = DataSet { label: String::from("Received (mb/s)"), data: vec![] };
-                    datas
-                }
-            };
-            let recv_mb = Byte::from_u64(recv);
-            nin_datas.data.push(recv_mb.get_adjusted_unit(Unit::Mbit).get_value() as f32);
-
-            let mut nout_datas = match all_dps.network.datasets.get(1) {
-                Some(datas) => datas.clone(),
-                None => {
-                    let datas = DataSet { label: String::from("Transmitted (mb/s)"), data: vec![] };
-                    datas
-                }
-            };
-            let trans_mb = Byte::from_u64(trans);
-            nout_datas.data.push(trans_mb.get_adjusted_unit(Unit::Mbit).get_value() as f32);
-
-            all_dps.network.datasets = vec![nin_datas, nout_datas];
-
-
-            // saving data into redis (ultra efficient performance x3000 code, written at 4am)
-            if all_dps.cpu.timestamps.len() > config.records {
-                all_dps.cpu.timestamps = all_dps.cpu.timestamps.split_off(all_dps.cpu.timestamps.len() - config.records);
-            }
-            for datas in all_dps.cpu.datasets.iter_mut() {
-                if datas.data.len() > config.records {
-                    datas.data = datas.data.split_off(datas.data.len() - config.records);
-                }
-            }
-
-            if all_dps.memory.timestamps.len() > config.records {
-                all_dps.memory.timestamps = all_dps.memory.timestamps.split_off(all_dps.memory.timestamps.len() - config.records);
-            }
-            for datas in all_dps.memory.datasets.iter_mut() {
-                if datas.data.len() > config.records {
-                    datas.data = datas.data.split_off(datas.data.len() - config.records);
-                }
-            }
-
-            if all_dps.network.timestamps.len() > config.records {
-                all_dps.network.timestamps = all_dps.network.timestamps.split_off(all_dps.network.timestamps.len() - config.records);
-            }
-            for datas in all_dps.network.datasets.iter_mut() {
-                if datas.data.len() > config.records {
-                    datas.data = datas.data.split_off(datas.data.len() - config.records);
-                }
-            }
-
-            let _: () = con.set(&config.redis_key, serde_json::to_string(&all_dps).unwrap()).await.unwrap();
+            sqlx::query!("INSERT INTO datapoints (cpu, memory, transmitted, received) VALUES ($1, $2, $3, $4)", cpu, memory, trans_mbit, recv_mbit)
+                .execute(&db)
+                .await
+                .unwrap();
         }
     });
 

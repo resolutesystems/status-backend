@@ -3,13 +3,9 @@
 [api]
 bind = "127.0.0.1:3000"
 
-[redis]
-url = "redis://127.0.0.1/"
-
 [collector]
-redis_key = "datapoints3"
-interval = 1
-records = 5
+interval = 10
+records = 10
 
 [status]
 services = [
