@@ -1,5 +1,4 @@
 // collector is a thread (entirely separate from axum) which gathers system data and saves it into redis
-// (code needs to be cleaned A LOT)
 
 use byte_unit::{Byte, Unit};
 use sqlx::PgPool;
