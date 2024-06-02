@@ -7,7 +7,7 @@ use crate::{models::{DataPoints, Incident}, AppContext};
 // TODO(hito): cache responses
 
 pub async fn datapoints(ctx: Extension<AppContext>) -> Json<Vec<DataPoints>> {
-    let datapoints = sqlx::query_as!(DataPoints, "SELECT * FROM datapoints ORDER BY id LIMIT 5")
+    let datapoints = sqlx::query_as!(DataPoints, "SELECT * FROM datapoints ORDER BY id DESC LIMIT 5")
         .fetch_all(&ctx.db)
         .await
         .unwrap();

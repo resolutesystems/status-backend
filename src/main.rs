@@ -5,12 +5,15 @@ mod config;
 
 #[cfg(not(unix))]
 use std::future;
+use std::time::Duration;
 
 use axum::{routing::{delete, get, post}, Extension, Router};
 use config::Config;
 use dotenvy_macro::dotenv;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::{net::TcpListener, signal};
+use reqwest::{header::HeaderValue, Method};
+use tower_http::{cors::{AllowOrigin, CorsLayer}, timeout::TimeoutLayer};
 
 use crate::{config::load_config, routes::{add_incident, datapoints, delete_incident, services}};
 
@@ -28,12 +31,23 @@ async fn start_api(config: Config, db: PgPool) -> anyhow::Result<()> {
 
     let ctx = AppContext { config, db };
 
+    let cors_layer = CorsLayer::new()
+        .allow_methods([Method::GET])
+        .allow_origin(AllowOrigin::exact(
+            HeaderValue::from_str("https://status.cipherfiles.com").unwrap(), // TODO(hito): add cors origin to config
+        ))
+        .allow_credentials(true);
+
     let router = Router::new()
         .route("/datapoints", get(datapoints))
         .route("/services", get(services))
         .route("/incidents", post(add_incident))
         .route("/incidents/:service", delete(delete_incident))
-        .layer(Extension(ctx));
+        .layer((
+            cors_layer,
+            TimeoutLayer::new(Duration::from_secs(10)),
+            Extension(ctx),
+        ));
 
     axum::serve(listener, router)
         .with_graceful_shutdown(shutdown_signal())
