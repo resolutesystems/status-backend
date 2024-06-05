@@ -25,18 +25,16 @@ struct AppContext {
     db: PgPool,
 }
 
-async fn start_api(config: Config, db: PgPool) -> anyhow::Result<()> {
-    let listener = TcpListener::bind(&config.api.bind).await?;
-    println!("api is running on http://{}", config.api.bind);
-
-    let ctx = AppContext { config, db };
+async fn start_api(cfg: Config, db: PgPool) -> anyhow::Result<()> {
+    let listener = TcpListener::bind(&cfg.api.bind).await?;
+    println!("api is running on http://{}", cfg.api.bind);
 
     let cors_layer = CorsLayer::new()
         .allow_methods([Method::GET])
-        .allow_origin(AllowOrigin::exact(
-            HeaderValue::from_str("https://status.cipherfiles.com").unwrap(), // TODO(hito): add cors origin to config
-        ))
+        .allow_origin(AllowOrigin::exact(HeaderValue::from_str(&cfg.api.cors_origin)?))
         .allow_credentials(true);
+
+    let ctx = AppContext { config: cfg, db };
 
     let router = Router::new()
         .route("/datapoints", get(datapoints))

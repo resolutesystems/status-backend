@@ -15,6 +15,7 @@ pub async fn load_config() -> anyhow::Result<Config> {
 #[derive(Clone, Deserialize)]
 pub struct ApiConfig {
     pub bind: String,
+    pub cors_origin: String,
 }
 
 #[serde_as]

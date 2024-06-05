@@ -1,10 +1,9 @@
-# TODO(hito): config documentation
-
 [api]
-bind = "127.0.0.1:3001"
+bind = "127.0.0.1:3000"
+cors_origin = "http://127.0.0.1:5173"
 
 [collector]
-interval = 60
+interval = 5
 records = 10
 
 [status]

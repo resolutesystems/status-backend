@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use crate::{models::{DataPoints, Incident}, AppContext};
 
 // TODO(hito): cache responses
-
 pub async fn datapoints(ctx: Extension<AppContext>) -> Json<Vec<DataPoints>> {
     let datapoints = sqlx::query_as!(DataPoints, "SELECT * FROM (SELECT * FROM datapoints ORDER BY id DESC LIMIT 5) subquery ORDER BY id")
         .fetch_all(&ctx.db)
